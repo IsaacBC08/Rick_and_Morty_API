@@ -11,8 +11,20 @@ colores = {
     "Card_fg" : "#444444", #? Fuente de las cartas
 }
 
-    
+
+def obtener_datos_de_pagina():
+        url_api = f"https://rickandmortyapi.com/api/character?page={LOCAL.page}"
+        respuesta = api.get(url_api)
+        if respuesta.status_code == 200:
+            return respuesta.json()
+        else:
+            return "Error"
+
+
 async def main(page : Page):
+    #Vamos a obtener los datos por lotes de 20
+    LOCAL.dt_pg_actual = obtener_datos_de_pagina()
+    LOCAL.dt_pg_actual = LOCAL.dt_pg_actual['results']
     #? Propiedades de la pantalla:
     page.window_height = 550  #Alto
     page.window_width = 840 #Ancho
@@ -23,6 +35,7 @@ async def main(page : Page):
     def cargar():
         #Con la función cargar, hacemos visibles todos los elementos
         Boton_Anterior.visible = True #* Boton anterior
+        Contenedor_Botones.alignment = MainAxisAlignment.SPACE_BETWEEN
         Contenedor_Central.controls[1].content.controls[0].visible = False #* Rick GIF
         Contenedor_Central.controls[1].content.controls[1].visible = True #* Name
         Contenedor_Central.controls[1].content.controls[2].visible = True #* ID
@@ -44,6 +57,8 @@ async def main(page : Page):
             LOCAL.page += 1
             # Volvemos a comenzar en el elemento 0
             LOCAL.id_personaje = 0
+            LOCAL.dt_pg_actual = obtener_datos_de_pagina()
+            LOCAL.dt_pg_actual = LOCAL.dt_pg_actual['results']
 
         # Caso contrario a estar en el ultimo elemento
         else:
@@ -52,7 +67,7 @@ async def main(page : Page):
 
         # Rick_and_morty es la función que accede a la API, obtiene la información
         # Y la coloca en pantalla, la llamamos y esperamos a que todo se actualice
-        await rick_and_morty()
+        await rick_and_morty(LOCAL.dt_pg_actual)
     
     # Función que cambia al elemento anterior
     async def elemento_anterior(e):
@@ -66,60 +81,43 @@ async def main(page : Page):
             LOCAL.page -= 1
             # Vamos al ultimo elemento
             LOCAL.id_personaje = 19
+            LOCAL.dt_pg_actual = obtener_datos_de_pagina()
+            LOCAL.dt_pg_actual = LOCAL.dt_pg_actual['results']
         # Si no estamos en el primer elemento, volvemos atrás
         else: 
             LOCAL.id_personaje -= 1
 
-        await rick_and_morty()
+        await rick_and_morty(LOCAL.dt_pg_actual)
 
     # Función que hace la llamada a la API
-    async def rick_and_morty():
-        # URL_API Hace la petición a la API, en el número de pagina que estemos
-        URL_API = f"https://rickandmortyapi.com/api/character?page={LOCAL.page}"
-        
-        # Intentamos obtener los datos
-        datos = api.get(URL_API)
-        
-        # Verificamos si obtenemos respuesta
-        if datos.status_code == 200: #200 significa que si
-            # Accedemos a los datos en un .json
-            datos = datos.json()
-            
-            # Accedemos a la instacia ['results'] de datos
-            if isinstance(datos['results'], list):
-                #Dentro de datos['results], buscamos el elemento de nuestro personaje
-                datos_personaje = datos['results'][LOCAL.id_personaje]
-                #Nombre:
-                Contenedor_Central.controls[1].content.controls[1].value = f"Name: {datos_personaje['name']}"
-                #ID:
-                Contenedor_Central.controls[1].content.controls[2].value = f"ID: {datos_personaje['id']}"
-                #Especie
-                Contenedor_Central.controls[1].content.controls[3].value = f"Specie: {datos_personaje['species']}"                   
-                #Estado(vivo/muerto)
-                Contenedor_Central.controls[1].content.controls[4].value = f"Status: {datos_personaje['status']}"
-                #Ubicación
-                Contenedor_Central.controls[1].content.controls[5].value = f"Location: {datos_personaje['location']['name']}"
-                #Foto
-                Contenedor_Imagen.content = Image(src=f"https://rickandmortyapi.com/api/character/avatar/{datos_personaje['id']}.jpeg", width=300, height=300)
-                page.update()
-        # Si no obtenemos respuesta
-        else:
-            print("Error de conexión")
-       
+    async def rick_and_morty(datos):
+        datos_personaje = datos[LOCAL.id_personaje]
+
+        #Nombre:
+        Contenedor_Central.controls[1].content.controls[1].value = f"Name: {datos_personaje['name']}"
+        #ID:
+        Contenedor_Central.controls[1].content.controls[2].value = f"ID: {datos_personaje['id']}"
+        #Especie
+        Contenedor_Central.controls[1].content.controls[3].value = f"Specie: {datos_personaje['species']}"                   
+        #Estado(vivo/muerto)
+        Contenedor_Central.controls[1].content.controls[4].value = f"Status: {datos_personaje['status']}"
+        #Ubicación
+        Contenedor_Central.controls[1].content.controls[5].value = f"Location: {datos_personaje['location']['name']}"
+        #Foto
+        Contenedor_Imagen.content = Image(src=f"https://rickandmortyapi.com/api/character/avatar/{datos_personaje['id']}.jpeg", width=300, height=300)
+        page.update()
+
+
     #Elementos
     Boton_Anterior = ElevatedButton(text= "<<", on_click= elemento_anterior)
     Boton_Siguiente = ElevatedButton(text=">>", on_click= siguiente_elemento)
-    Contenedor_Botones = Row([Boton_Anterior, Boton_Siguiente], alignment= MainAxisAlignment.SPACE_BETWEEN, vertical_alignment= CrossAxisAlignment.END)
+    Contenedor_Botones = Row([Boton_Anterior, Boton_Siguiente], alignment= MainAxisAlignment.END, vertical_alignment= CrossAxisAlignment.END)
     Contenedor_Imagen = AnimatedSwitcher(Image(
                 src= "https://www.google.com/url?sa=i&url=https%3A%2F%2Far.pinterest.com%2Fpin%2F704180091723575473%2F&psig=AOvVaw1vorMHIK2eZLlTKamxUOpS&ust=1713746845231000&source=images&cd=vfe&opi=89978449&ved=0CBIQjRxqFwoTCPD_9OWJ0oUDFQAAAAAdAAAAABAE",
                 width= 300,
                 height= 300,
-                border_radius= BorderRadius(10, 10, 10, 10),), 
-                transition= AnimatedSwitcherTransition.SCALE,
-                duration= 750,
-                reverse_duration= 750,
-                switch_in_curve= AnimationCurve.BOUNCE_OUT,
-                switch_out_curve= AnimationCurve.BOUNCE_IN,
+                border_radius= BorderRadius(14, 14, 14, 14),), 
+                #transition= AnimatedSwitcherTransition.FADE,
             )
 
     #Contenedores  
@@ -171,35 +169,36 @@ async def main(page : Page):
                     visible= False,
                     value= "Name: ¿¿??",
                     color= colores["Card_fg"],
-                    style= TextStyle(size= 30, weight= FontWeight.BOLD),
+                    style= TextStyle(size= 26, weight= FontWeight.BOLD),
+                    text_align= MainAxisAlignment.START
                 ),
                 Text(
                     visible= False,
                     value= "Id: ¿¿??",
                     color= colores["Card_fg"],
-                    style= TextStyle(size= 30, weight= FontWeight.BOLD),
+                    style= TextStyle(size= 26, weight= FontWeight.BOLD),
                 ),
                 Text(
                     visible = False,
                     value= "Specie: ¿¿??",
                     color= colores["Card_fg"],
-                    style= TextStyle(size= 30, weight= FontWeight.BOLD),
+                    style= TextStyle(size= 26, weight= FontWeight.BOLD),
                 ),
                 Text(
                     visible = False,
                     color= colores["Card_fg"],
                     value= "Status: ¿¿??",
-                    style= TextStyle(size= 30, weight= FontWeight.BOLD),
+                    style= TextStyle(size= 26, weight= FontWeight.BOLD),
                 ),
                 Text(
                     visible = False,
                     color= colores["Card_fg"],
                     value= "Location: ¿¿??",
-                    style= TextStyle(size= 30, weight= FontWeight.BOLD),
+                    style= TextStyle(size= 26, weight= FontWeight.BOLD),
                 ),
             ],
             expand= True,
-            alignment= MainAxisAlignment.START
+            alignment= MainAxisAlignment.SPACE_AROUND
             ), 
             margin=10,
             padding=10,
